@@ -12,7 +12,7 @@ The MIM method is based on the following paper. I am working on rewrite the MIM 
 
 ```
 @article{wang2024time,
-  title={Time-Optimal Control for High-Order Chain-of-Integrators Systems with Full State Constraints and Arbitrary Terminal States (Part I, Extended Version)},
+  title={Time-Optimal Control for High-Order Chain-of-Integrators Systems with Full State Constraints and Arbitrary Terminal States},
   author={Wang, Yunan and Hu, Chuxiong and Li, Zeyang and Lin, Shize and He, Suqin and Zhu, Yu},
   journal={IEEE Transactions on Automatic Control},
   year={2024}
