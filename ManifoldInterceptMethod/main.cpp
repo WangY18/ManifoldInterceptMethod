@@ -3,7 +3,6 @@
 using namespace std;
 
 int main() {
-	cout << "Hello, World!" << endl;
-	cout << "This is the main file for the Manifold Intercept Method." << endl;
+	demo_3rd_order();
 	return 0;
 }

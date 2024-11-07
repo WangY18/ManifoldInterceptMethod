@@ -18,5 +18,31 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="demo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="arcs.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Planner.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="demo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="arcs.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Planner.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Interpolator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
