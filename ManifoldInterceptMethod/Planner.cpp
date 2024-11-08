@@ -88,7 +88,10 @@ vector<arc> Planner::plan(int order, double* x0, double* xf, Constraint& constra
 	if (order == 2) {
 		return plan_2nd_order(x0, xf, constraint, flag_consider_position, 0);
 	}
-	return plan_3rd_order(x0, xf, constraint, flag_consider_position, 0);
+	if (order == 3) {
+		return plan_3rd_order(x0, xf, constraint, flag_consider_position, 0);
+	}
+	return vector<arc>(); // TODO: higher order
 }
 
 // Calculate the state vector at the end of the arc.
@@ -121,7 +124,6 @@ waypoints Planner::end_points(int order, const double* x0, const Constraint& con
 	for (int k = 0; k < order; k++) {
 		result[0][k] = x0[k];
 	}
-	//double* T = new double[order + 1]; // T[k] = t^k/k!
 	for (int i = 0, i_arc = 0; i < N_real; i++, i_arc++) {
 		while (arcs[i_arc].tangent != 0) {
 			i_arc++;
@@ -129,7 +131,6 @@ waypoints Planner::end_points(int order, const double* x0, const Constraint& con
 		// x moves from x[k] to x[k+1] along arcs[i_arc]
 		dynamics_onestep(order, result[i], result[i + 1], constraint.cal_u(arcs[i_arc]), arcs[i_arc].time);
 	}
-	//delete[] T;
 	return result;
 }
 
@@ -267,7 +268,6 @@ vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constrai
 		waypoints xs1 = end_points(3, x0, constraint, result.data(), result.size());
 		double propos2 = proper_position(3, maxV, xf, constraint);
 		waypoints xs2 = start_points(3, xf, constraint, result2.data(), result2.size());
-		//printf("propos2=%lf, xs_before=%lf, xs2=%lf\n", propos2, xs1[xs1.length - 1][2], xs2[xs2.length - 1][2]);
 		if (xs1[xs1.length - 1][2] <= xf[2] - propos2) {
 			result.push_back(arc(2, true, 0, (xf[2] - propos2 - xs1[xs1.length - 1][2]) / constraint.M_max[2]));
 			for (int i = 0; i < result2.size(); i++) {
@@ -277,17 +277,6 @@ vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constrai
 			xs1.clear();
 			return result;
 		}
-		//for (int i = 0; i < xs1.length; i++) {
-		//	cout << "x" << i << ": ";
-		//	for (int j = 0; j < xs1.order; j++) {
-		//		cout << xs1[i][j] << " ";
-		//	}
-		//	cout << endl;
-		//}
-		//printf("propos=%lf, xs_before=%lf, xf=%lf\n", proper_position(3, xs1[0], xf, constraint), xs1[0][2], xf[2]);
-		//printf("propos=%lf, xs_before=%lf, xf=%lf\n", proper_position(3, xs1[1], xf, constraint), xs1[1][2], xf[2]);
-		//printf("propos=%lf, xs_before=%lf, xf=%lf\n", proper_position(3, xs1[2], xf, constraint), xs1[2][2], xf[2]);
-		//printf("propos=%lf, xs_before=%lf, xf=%lf\n", proper_position(3, xs1[3], xf, constraint), xs1[3][2], xf[2]);
 		xs1.length -= 2; // +0 cannot exist.
 		result.pop_back();
 		result[result.size() - 1].time = 0;

@@ -129,6 +129,7 @@
   <ItemGroup>
     <ClCompile Include="arcs.cpp" />
     <ClCompile Include="demo.cpp" />
+    <ClCompile Include="Interpolator.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Planner.cpp" />
   </ItemGroup>
