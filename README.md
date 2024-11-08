@@ -41,7 +41,7 @@ The advantages of MIM are as follows:
 
 + **Asymmetric constraints**. For example, we can require that $-1\leq x_3\leq +\infty$, $-2\leq x_2\leq 3$, $-\infty\leq x_1\leq +\infty$, $-1.5\leq u\leq 1$ in a 3rd-order problem, where $x_3$ is position, $x_2$ is velocity, $x_1$ is acceleration, and $u$ is jerk.
 + **Non-zero boundary states**. For example, we can require that the trajectory moves from $(x_1,x_2,x_3)=(1,-0.375,4)$ to $(x_1,x_2,x_3)=(-0.1,0.1,-1)$ in a 3rd-order problem.
-+ **High computational efficiency**. The computation time of MIM can be significantly reduced compared to existing methods, where **3rd-order** problems require only about **0.2~0.8 ms** (in release mode), and the computation time for **4th-order** problems is reduced by **two orders of magnitude** compared to the existing optimization-based methods.
++ **High computational efficiency**. The computation time of MIM can be significantly reduced compared to existing methods, where **3rd-order** problems require only about **0.02~0.08 ms** (in release mode), and the computation time for **4th-order** problems is reduced by **two orders of magnitude** compared to the existing optimization-based methods.
 + **High trajectory quality.** No chattering exists.
 + **High success rate**. 100% success rate for problems of order $n\leq4$.
 + **Strict/near time-optimality**. 100% optimality for problems of order $n\leq3$. 99.88% optimality for 4h-order problems.
