@@ -146,10 +146,12 @@ x0 = [1;-0.375;3.999]; % the initial state vector: [acceleration;velocity;positi
 xf = [0;0;4]; % the terminal state vector: [acceleration;velocity;position]
 M_max = [1;1;1.5;4]; % the maximal jerk, acceleration, velocity, and position
 M_min = [-1;-1;-1.5;-4]; % the minimal jerk, acceleration, velocity, and position
+%% Plan the trajectory
 epsilon = 1e-6; % the allowed numerical error
-[orders,signs,tangents,arctimes] = plan_nth_order(x0,xf,M_max,M_min,true,0,epsilon); % plan the trajectory
+[orders,signs,tangents,arctimes] = plan_nth_order(x0,xf,M_max,M_min,true,0,epsilon);
+%% Interpolate the trajectory
 Ts = 1e-3; % the sample time
-[xs,ts] = interpolate_MIM(x0,orders,signs,tangents,arctimes,M_max(1),M_min(1),Ts,0,true); % interpolate the trajectory
+[xs,ts] = interpolate_MIM(x0,orders,signs,tangents,arctimes,M_max(1),M_min(1),Ts,0,true);
 ```
 
 The meanings are the same as those in C++ version.
