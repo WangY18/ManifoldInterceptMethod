@@ -41,19 +41,31 @@ The advantages of MIM are as follows:
 
 + **Asymmetric constraints**. For example, we can require that $-1\leq x_3\leq +\infty$, $-2\leq x_2\leq 3$, $-\infty\leq x_1\leq +\infty$, $-1.5\leq u\leq 1$ in a 3rd-order problem, where $x_3$ is position, $x_2$ is velocity, $x_1$ is acceleration, and $u$ is jerk.
 + **Non-zero boundary states**. For example, we can require that the trajectory moves from $(x_1,x_2,x_3)=(1,-0.375,4)$ to $(x_1,x_2,x_3)=(-0.1,0.1,-1)$ in a 3rd-order problem.
-+ **High computational efficiency**. The computation time of MIM can be significantly reduced compared to existing methods, where **3rd-order** problems require only about **0.02~0.08 ms** (in release mode), and the computation time for **4th-order** problems is reduced by **two orders of magnitude** compared to the existing optimization-based methods.
++ **High computational efficiency**. The computation time of MIM can be significantly reduced compared to existing methods, where **3rd-order** problems require only about <mark>**0.02~0.08 ms**</mark> (in C++ release mode), and the computation time for **4th-order** problems is reduced by **two orders of magnitude** compared to the existing optimization-based methods.
 + **High trajectory quality.** No chattering exists.
 + **High success rate**. 100% success rate for problems of order $n\leq4$.
 + **Strict/near time-optimality**. 100% optimality for problems of order $n\leq3$. 99.88% optimality for 4h-order problems.
 
 ## Statement
 
-+ To achieve ultimate performance, I have rewritten MIM in **C++**. The paper used MATLAB, so this repository will even significantly outperform the effects claimed in the paper.
-+ The development based on C++ is a massive undertaking, so I will proceed with a phased approach and gradually open-source these features. Noting that third-order trajectories are currently the most widely used, I have initially open-sourced the third-order trajectory. Higher-order trajectories, including fourth-order and above, will be open-sourced in the future as time permits. If you urgently need them, please contact me.
-+ The project depends on: [GNU Scientific Library](https://www.gnu.org/software/gsl/).
-+ If you use the MIM library for academic purposes, please cite our paper in IEEE TAC. If you have commercial needs, please contact me through wang-yn22@mails.tsinghua.edu.cn.
+### General
 
-## Step-by-Step Guidance
++ If you use the MIM library for academic purposes, please cite our paper in IEEE TAC. If you have commercial needs, please contact me through wang-yn22@mails.tsinghua.edu.cn.
++ We provide two languages for MIM: <mark>**C++**</mark> and <mark>**MATLAB**</mark>.
+    + The original paper uses MATLAB. We rewritten MIM for higher numerical stability.
+    + To achieve ultimate performance, I have rewritten MIM in **C++**. The C++ version even significantly outperforms the effects claimed in the paper.
++ The development based on MATLAB/C++ is a massive undertaking, so I will proceed with a phased approach and gradually open-source these features. Noting that third-order trajectories are currently the most widely used, I have initially open-sourced the third-order trajectory. Higher-order trajectories, including fourth-order and above, will be open-sourced in the future as time permits. If you urgently need them, please contact me.
+
+### C++
+
++ See `ManifoldInterceptMethod\ManifoldInterceptMethod\`.
++ The project depends on: [GNU Scientific Library](https://www.gnu.org/software/gsl/).
+
+### MATLAB
+
++ See `MATLAB-version\`.
+
+## Step-by-Step Guidance (C++ Version)
 
 ### Step 1. Set the constraint and the boundary states
 
@@ -123,6 +135,24 @@ If you want to output the trajectory as a csv file, you can type like this:
 ```c++
 interpolator.write_csv(R"(..\data\3rd_order\0102010.csv)");
 ```
+
+## Guidance (MATLAB Version)
+
+For the 3rd-order example in the C++, the MATLAB code is as follows:
+
+```matlab
+%% Set up
+x0 = [1;-0.375;3.999]; % the initial state vector: [acceleration;velocity;position]
+xf = [0;0;4]; % the terminal state vector: [acceleration;velocity;position]
+M_max = [1;1;1.5;4]; % the maximal jerk, acceleration, velocity, and position
+M_min = [-1;-1;-1.5;-4]; % the minimal jerk, acceleration, velocity, and position
+epsilon = 1e-6; % the allowed numerical error
+[orders,signs,tangents,arctimes] = plan_nth_order(x0,xf,M_max,M_min,true,0,epsilon); % plan the trajectory
+Ts = 1e-3; % the sample time
+[xs,ts] = interpolate_MIM(x0,orders,signs,tangents,arctimes,M_max(1),M_min(1),Ts,0,true); % interpolate the trajectory
+```
+
+The meanings are the same as those in C++ version.
 
 ### Example 1. 3rd-order problems with 7 arcs.
 

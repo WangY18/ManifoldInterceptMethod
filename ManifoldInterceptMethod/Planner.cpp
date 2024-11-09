@@ -43,7 +43,7 @@ vector<arc> Planner::plan_2nd_order(double* x0, double* xf, Constraint& constrai
 	if ((!isinf(constraint.M_max[1])) && DeltaX2 > 0) { // Consider 010
 		result.push_back(arc(0, true, 0, (constraint.M_max[1] - x0[0]) / constraint.M_max[0]));
 		result.push_back(arc(1, true, 0, DeltaX2 / constraint.M_max[1]));
-		result.push_back(arc(0, false, 0, (constraint.M_max[1] - xf[0]) / constraint.M_max[0]));
+		result.push_back(arc(0, false, 0, (xf[0] - constraint.M_max[1]) / constraint.M_min[0]));
 		if (flag_consider_position && !feasible(2, x0, constraint, result.data(), result.size())) {
 			result.clear();
 		}
@@ -134,7 +134,7 @@ waypoints Planner::end_points(int order, const double* x0, const Constraint& con
 	return result;
 }
 
-// Calculate the end points of the trajectory to the terminal state vector xf.
+// Calculate the start points of the trajectory to the terminal state vector xf.
 waypoints Planner::start_points(int order, const double* xf, const Constraint& constraint, const arc* arcs, int length) {
 	arc* arcs_reverse = new arc[length];
 	for (int i = 0; i < length; i++) {
@@ -159,7 +159,8 @@ bool Planner::feasible(int order, const double* x0, const Constraint& constraint
 	}
 	double* x_old = new double[order];
 	double* coeffs = new double[order]();
-	double* T = new double[order](); // T[k] = t^k/k!
+	double* T = new double[order](); // T[k] = 1/k!
+	T[0] = 1;
 	double* z = new double[order + 1]();
 	for (int i = 0; i < length; i++) {
 		if (arcs[i].tangent != 0) {
@@ -167,9 +168,8 @@ bool Planner::feasible(int order, const double* x0, const Constraint& constraint
 		}
 		double u = constraint.cal_u(arcs[i]);
 		// Check the local minimum or maximum of x[k] along the trajectory.
-		T[0] = 1;
 		for (int k = 1; k < order; k++) {
-			T[k] = T[k - 1] * arcs[i].time / k;
+			T[k] = T[k - 1] / k;
 			if (isinf(constraint.M_max[k]) && isinf(constraint.M_min[k])) {
 				continue;
 			}
@@ -197,6 +197,8 @@ bool Planner::feasible(int order, const double* x0, const Constraint& constraint
 						Tk *= z[2 * l] / j;
 						xk += Tk * x[k - j];
 					}
+					Tk *= z[2 * l] / (k + 1);
+					xk += Tk * u;
 					if ((!isinf(constraint.M_min[k + 1]) && xk + constraint.EPSILON < constraint.M_min[k + 1]) || (!isinf(constraint.M_max[k + 1]) && xk - constraint.EPSILON > constraint.M_max[k + 1])) {
 						delete[] x;
 						delete[] x_old;
@@ -242,6 +244,9 @@ vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constrai
 		}
 		waypoints xs_try = end_points(3, x0, constraint, arc_try.data(), arc_try.size());
 		if (norm_inf(xs_try[xs_try.length - 1], xf, 3) < constraint.EPSILON) {
+			if (flag_consider_position && (!feasible(3, x0, constraint, arc_try.data(), arc_try.size()))) {
+				arc_try.clear();
+			}
 			return arc_try;
 		}
 		direction = xs_try[xs_try.length - 1][2] < xf[2] ? 1 : -1;
@@ -266,10 +271,11 @@ vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constrai
 		result = plan_2nd_order(x0, maxV, constraint, false, 1);
 		vector<arc> result2 = plan_2nd_order(maxV, xf, constraint, false, -1);
 		waypoints xs1 = end_points(3, x0, constraint, result.data(), result.size());
-		double propos2 = proper_position(3, maxV, xf, constraint);
 		waypoints xs2 = start_points(3, xf, constraint, result2.data(), result2.size());
-		if (xs1[xs1.length - 1][2] <= xf[2] - propos2) {
-			result.push_back(arc(2, true, 0, (xf[2] - propos2 - xs1[xs1.length - 1][2]) / constraint.M_max[2]));
+		if (xs1[xs1.length - 1][2] <= xs2[xs2.length - 1][2]) {
+			if (xs1[xs1.length - 1][2] < xs2[xs2.length - 1][2]) {
+				result.push_back(arc(2, true, 0, (xs2[xs2.length - 1][2] - xs1[xs1.length - 1][2]) / constraint.M_max[2]));
+			}
 			for (int i = 0; i < result2.size(); i++) {
 				result.push_back(result2[i]);
 			}
@@ -305,7 +311,6 @@ vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constrai
 	bool flag_succeed_noposition = false;
 	while (result.size() > 1) {
 		double propos = proper_position(3, xs_before[xs_before.length - 1], xf, constraint);
-		//printf("propos=%lf, xs_before=%lf, xf=%lf\n", propos, xs_before[xs_before.length - 1][2], xf[2]);
 		if (xs_before[xs_before.length - 1][2] <= xf[2] - propos) {
 			break;
 		}
@@ -350,18 +355,21 @@ vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constrai
 		waypoints xsf = start_points(3, xf, constraint, &arc4, 1);
 		arc3 = arc(1, false, 0);
 		double* T_s01 = solution_3arc_3rd_order(xs_before[xs_before.length - 1], xsf[xsf.length - 1], result[result.size() - 1], arc2, arc3, constraint);
-		result[result.size() - 1].time = T_s01[0] - T_s01[1];
-		arc2.time = T_s01[1] - T_s01[2];
-		arc3.time = T_s01[2];
-		delete[] T_s01;
-		result.push_back(arc2);
-		result.push_back(arc3);
-		if (feasible(2, xs_before[xs_before.length - 1], constraint, result.data() + (result.size() - 3), 3)) {
-			flag_succeed_noposition = true;
-		}
-		else {
-			result.pop_back();
-			result.pop_back();
+		if (T_s01 != nullptr) {
+			result[result.size() - 1].time = T_s01[0] - T_s01[1];
+			arc2.time = T_s01[1] - T_s01[2];
+			arc3.time = T_s01[2];
+			delete[] T_s01;
+			result.push_back(arc2);
+			result.push_back(arc3);
+			if (feasible(2, xs_before[xs_before.length - 1], constraint, result.data() + (result.size() - 3), 3)) {
+				flag_succeed_noposition = true;
+				result.push_back(arc4);
+			}
+			else {
+				result.pop_back();
+				result.pop_back();
+			}
 		}
 	}
 	if (!flag_succeed_noposition) {
@@ -385,13 +393,18 @@ vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constrai
 		delete[] T_tangent;
 		result.push_back(arc1);
 		result.push_back(arc2);
-		waypoints xs1 = end_points(3, x0, constraint, result.data(), result.size());
-		result.push_back(arc(3, true, 2));
-		vector<arc> result2 = plan_3rd_order(xs1[2], xf, constraint, false, -1);
-		for (int i = 0; i < result2.size(); ++i) {
-			result.push_back(result2[i]);
+		if (feasible(2, x0, constraint, result.data(), result.size())) {
+			waypoints xs1 = end_points(3, x0, constraint, result.data(), result.size());
+			result.push_back(arc(3, true, 2));
+			vector<arc> result2 = plan_3rd_order(xs1[2], xf, constraint, false, -1);
+			for (int i = 0; i < result2.size(); ++i) {
+				result.push_back(result2[i]);
+			}
+			return result;
 		}
-		return result;
+		else {
+			result.clear();
+		}
 	}
 	// Step 4.1.2: 010(-3,2)*
 	arc1 = plan_1st_order(x0[0], constraint.M_max[1], constraint);
@@ -406,11 +419,13 @@ vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constrai
 		result.push_back(arc1);
 		result.push_back(arc2);
 		result.push_back(arc3);
-		waypoints xs1 = end_points(3, x0, constraint, result.data(), result.size());
-		result.push_back(arc(3, true, 2));
-		vector<arc> result2 = plan_3rd_order(xs1[2], xf, constraint, false, -1);
-		for (int i = 0; i < result2.size(); ++i) {
-			result.push_back(result2[i]);
+		if (feasible(2, x0, constraint, result.data(), result.size())) {
+			waypoints xs1 = end_points(3, x0, constraint, result.data(), result.size());
+			result.push_back(arc(3, true, 2));
+			vector<arc> result2 = plan_3rd_order(xs1[2], xf, constraint, false, -1);
+			for (int i = 0; i < result2.size(); ++i) {
+				result.push_back(result2[i]);
+			}
 		}
 		return result;
 	}
@@ -425,14 +440,16 @@ vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constrai
 		delete[] T_tangent;
 		arc arcs2[] = { arc2, arc1 };
 		waypoints xs1 = start_points(3, xf, constraint, arcs2, 2);
-		vector<arc> result2 = plan_3rd_order(x0, xs1[2], constraint, false, -1);
-		for (int i = 0; i < result2.size(); ++i) {
-			result.push_back(result2[i]);
+		if (feasible(2, xs1[xs1.length - 1], constraint, result.data(), result.size())) {
+			vector<arc> result2 = plan_3rd_order(x0, xs1[2], constraint, false, -1);
+			for (int i = 0; i < result2.size(); ++i) {
+				result.push_back(result2[i]);
+			}
+			result.push_back(arc(3, true, 2));
+			result.push_back(arc2);
+			result.push_back(arc1);
+			return result;
 		}
-		result.push_back(arc(3, true, 2));
-		result.push_back(arc2);
-		result.push_back(arc1);
-		return result;
 	}
 	// Step 4.2.1: *(-3,2)010
 	arc1 = plan_1st_order(constraint.M_max[1], xf[0], constraint);
@@ -446,15 +463,17 @@ vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constrai
 		delete[] T_tangent;
 		arc arcs2[] = { arc3, arc2, arc1 };
 		waypoints xs1 = start_points(3, xf, constraint, arcs2, 3);
-		vector<arc> result2 = plan_3rd_order(x0, xs1[3], constraint, false, -1);
-		for (int i = 0; i < result2.size(); ++i) {
-			result.push_back(result2[i]);
+		if (feasible(2, xs1[xs1.length - 1], constraint, result.data(), result.size())) {
+			vector<arc> result2 = plan_3rd_order(x0, xs1[3], constraint, false, -1);
+			for (int i = 0; i < result2.size(); ++i) {
+				result.push_back(result2[i]);
+			}
+			result.push_back(arc(3, true, 2));
+			result.push_back(arc3);
+			result.push_back(arc2);
+			result.push_back(arc1);
+			return result;
 		}
-		result.push_back(arc(3, true, 2));
-		result.push_back(arc3);
-		result.push_back(arc2);
-		result.push_back(arc1);
-		return result;
 	}
 	result.clear();
 	return result;
