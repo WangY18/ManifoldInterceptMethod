@@ -128,7 +128,7 @@ function [orders,signs,tangents,arctimes] = plan_3rd_order(x0,xf,M_max,M_min,fla
             end
         end
     end
-    if (feasible(x0,M_max,M_min,orders,signs,tangents,arctimes,epsilon))
+    if (~flag_consider_position || feasible(x0,M_max,M_min,orders,signs,tangents,arctimes,epsilon))
         return
     end
     % Step 4: Consider tangent markers.
