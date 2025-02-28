@@ -67,7 +67,7 @@ function [orders,signs,tangents,arctimes] = plan_3rd_order(x0,xf,M_max,M_min,fla
         tangents(end) = [];
         arctimes(end) = [];
         arctimes(end) = 0;
-    elseif (~isinf(M_max(1)))
+    elseif (~isinf(M_max(2)))
         orders = [0,1];
         signs = [true,true];
         tangents = [0,0];
@@ -82,9 +82,10 @@ function [orders,signs,tangents,arctimes] = plan_3rd_order(x0,xf,M_max,M_min,fla
     end
     % Step 2: Find where the trajectory enters the manifold.
     flag_succeed_noposition = false;
+    propos0 = proper_position(x0,xf,M_max,M_min,epsilon);
     for i = size(xs1,2):-1:1
         propos = proper_position(xs1(:,i),xf,M_max,M_min,epsilon);
-        if (xs1(3,i)+propos<=xf(3))
+        if ((x0(3)+propos0-xf(3))*(xs1(3,i)+propos-xf(3))<=0)
             break;
         end
     end
@@ -109,7 +110,7 @@ function [orders,signs,tangents,arctimes] = plan_3rd_order(x0,xf,M_max,M_min,fla
             arctimes = [arctimes(1:end-1),arctimes_try];
         end
     end
-    if (~flag_succeed_noposition)
+    if (~flag_succeed_noposition && ~isinf(M_min(2)))
         % Step 3.2: s010
         [order4,sign4,tangent4,arctime4] = plan_1st_order(M_min(2),xf(1),M_max(1),M_min(1));
         xsf = start_points(xf,M_max(1),M_min(1),order4,sign4,tangent4,arctime4);
@@ -125,10 +126,11 @@ function [orders,signs,tangents,arctimes] = plan_3rd_order(x0,xf,M_max,M_min,fla
                 signs = [signs,signs_try(2:end)];
                 tangents = [tangents,0,0,0];
                 arctimes = [arctimes(1:end-1),arctimes_try];
+                flag_succeed_noposition = true;
             end
         end
     end
-    if (feasible(x0,M_max,M_min,orders,signs,tangents,arctimes,epsilon))
+    if flag_succeed_noposition && (~flag_consider_position || feasible(x0,M_max,M_min,orders,signs,tangents,arctimes,epsilon))
         return
     end
     % Step 4: Consider tangent markers.
@@ -152,22 +154,24 @@ function [orders,signs,tangents,arctimes] = plan_3rd_order(x0,xf,M_max,M_min,fla
         end
     end
     % Step 4.1.2: 010(-3,2)*
-    orders = [0,1,0];
-    signs = [true,true,false];
-    arctimes = [(M_max(2)-x0(1))/M_max(1),0,0];
-    tangents = [0,0,0];
-    x1 = dynamics_onestep(x0,M_max(1),arctimes(1));
-    [T1,T2] = solution_2arc_tangent_3rd_order(x1,orders(2:3),signs(2:3),M_max,M_min,true,epsilon);
-    if (~isempty(T1))
-        arctimes(2:3) = [T1(1)-T2(1),T2(1)];
-        if (feasible(x1(1:2),M_max(1:3),M_min(1:3),orders(2:3),signs(2:3),tangents(2:3),arctimes(2:3),epsilon))
-            xs1 = end_points(x1,M_max(1),M_min(1),orders(2:3),signs(2:3),tangents(2:3),arctimes(2:3));
-            [orders2,signs2,tangents2,arctimes2] = plan_3rd_order(xs1(:,end),xf,M_max,M_min,false,-1,epsilon);
-            orders = [orders,3,orders2];
-            signs = [signs,true,signs2];
-            tangents = [tangents,2,tangents2];
-            arctimes = [arctimes,0,arctimes2];
-            return
+    if (~isinf(M_max(2)))
+        orders = [0,1,0];
+        signs = [true,true,false];
+        arctimes = [(M_max(2)-x0(1))/M_max(1),0,0];
+        tangents = [0,0,0];
+        x1 = dynamics_onestep(x0,M_max(1),arctimes(1));
+        [T1,T2] = solution_2arc_tangent_3rd_order(x1,orders(2:3),signs(2:3),M_max,M_min,true,epsilon);
+        if (~isempty(T1))
+            arctimes(2:3) = [T1(1)-T2(1),T2(1)];
+            if (feasible(x1(1:2),M_max(1:3),M_min(1:3),orders(2:3),signs(2:3),tangents(2:3),arctimes(2:3),epsilon))
+                xs1 = end_points(x1,M_max(1),M_min(1),orders(2:3),signs(2:3),tangents(2:3),arctimes(2:3));
+                [orders2,signs2,tangents2,arctimes2] = plan_3rd_order(xs1(:,end),xf,M_max,M_min,false,-1,epsilon);
+                orders = [orders,3,orders2];
+                signs = [signs,true,signs2];
+                tangents = [tangents,2,tangents2];
+                arctimes = [arctimes,0,arctimes2];
+                return
+            end
         end
     end
     % Step 4.2: like 000(-3,2)00
@@ -189,26 +193,26 @@ function [orders,signs,tangents,arctimes] = plan_3rd_order(x0,xf,M_max,M_min,fla
         end
     end
     % Step 4.2.1: *(-3,2)010
-    orders = [0,1,0];
-    signs = [false,true,true];
-    arctimes = [(M_max(2)-x0(1))/M_max(1),0,0];
-    x1 = dynamics_onestep(xf,M_min(1),-arctimes(1));
-    [T1,T2] = solution_2arc_tangent_3rd_order(x1,orders(2:3),signs(2:3),M_max,M_min,false,epsilon);
-    if (~isempty(T1))
-        arctimes(1:2) = [T2(1)-T1(1),-T2(1)];
-        tangents = [0,0,0];
-        xs1 = start_points(xf,M_max(1),M_min(1),orders(end:-1:1),signs(end:-1:1),tangents(end:-1:1),arctimes(end:-1:1));
-        if (feasible(xs1(1:2,end),M_max(1:3),M_min(1:3),orders(end:-1:1),signs(end:-1:1),tangents(end:-1:1),arctimes(end:-1:1),epsilon))
-            [orders2,signs2,tangents2,arctimes2] = plan_3rd_order(x0,xs1(:,end),M_max,M_min,false,-1,epsilon);
-            orders = [orders2,3,orders(end:-1:1)];
-            signs = [signs2,true,signs(end:-1:1)];
-            tangents = [tangents2,2,tangents(end:-1:1)];
-            arctimes = [arctimes2,0,arctimes(end:-1:1)];
-            return
+    if (~isinf(M_max(2)))
+        orders = [0,1,0];
+        signs = [false,true,true];
+        arctimes = [(M_max(2)-x0(1))/M_max(1),0,0];
+        x1 = dynamics_onestep(xf,M_min(1),-arctimes(1));
+        [T1,T2] = solution_2arc_tangent_3rd_order(x1,orders(2:3),signs(2:3),M_max,M_min,false,epsilon);
+        if (~isempty(T1))
+            arctimes(1:2) = [T2(1)-T1(1),-T2(1)];
+            tangents = [0,0,0];
+            xs1 = start_points(xf,M_max(1),M_min(1),orders(end:-1:1),signs(end:-1:1),tangents(end:-1:1),arctimes(end:-1:1));
+            if (feasible(xs1(1:2,end),M_max(1:3),M_min(1:3),orders(end:-1:1),signs(end:-1:1),tangents(end:-1:1),arctimes(end:-1:1),epsilon))
+                [orders2,signs2,tangents2,arctimes2] = plan_3rd_order(x0,xs1(:,end),M_max,M_min,false,-1,epsilon);
+                orders = [orders2,3,orders(end:-1:1)];
+                signs = [signs2,true,signs(end:-1:1)];
+                tangents = [tangents2,2,tangents(end:-1:1)];
+                arctimes = [arctimes2,0,arctimes(end:-1:1)];
+                return
+            end
         end
     end
-    orders = [];
-    signs = [];
-    tangents = [];
-    arctimes = [];
+    % Between switching surfaces
+    [orders,signs,tangents,arctimes] = plan_3rd_order(x0,xf,M_max,M_min,flag_consider_position,-direction,epsilon);
 end

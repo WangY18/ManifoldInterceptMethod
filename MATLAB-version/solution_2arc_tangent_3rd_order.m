@@ -11,6 +11,11 @@ function [T1,T2] = solution_2arc_tangent_3rd_order(x0,orders,signs,M_max,M_min,p
     else
         y3 = M_min(4) - x0(3);
     end
+    if isinf(y3)
+        T1 = [];
+        T2 = [];
+        return
+    end
         
 	c6 = u1 * u1 * (u1 + u2);
 	c5 = 6 * u1 * x1 * (u1 + u2);

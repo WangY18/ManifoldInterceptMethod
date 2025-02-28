@@ -4,9 +4,9 @@ function [orders,signs,tangents,arctimes] = plan_1st_order(x0,xf,M0_max,M0_min)
     tangents = 0;
     if (x0 < xf)
         signs = true;
-        arctimes = (xf - x0) / M0_max(1);
+        arctimes = (xf - x0) / M0_max;
     else
         signs = false;
-        arctimes = (xf - x0) / M0_min(1);
+        arctimes = (xf - x0) / M0_min;
     end
 end
