@@ -85,7 +85,7 @@ function [orders,signs,tangents,arctimes] = plan_3rd_order(x0,xf,M_max,M_min,fla
     propos0 = proper_position(x0,xf,M_max,M_min,epsilon);
     for i = size(xs1,2):-1:1
         propos = proper_position(xs1(:,i),xf,M_max,M_min,epsilon);
-        if ((x0(3)+propos0-xf(3))*(xs1(3,i)+propos-xf(3))<=0)
+        if ((x0(3)+propos0-xf(3))*(xs1(3,i)+propos-xf(3))>=0)
             break;
         end
     end
