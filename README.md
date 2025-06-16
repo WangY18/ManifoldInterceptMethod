@@ -16,15 +16,18 @@ $$
 ## Please Cite:
 
 ```
-Wang, Yunan, Hu, Chuxiong, Li, Zeyang, Lin, Shize, He, Suqin, & Zhu, Yu (2024). Time-optimal control for high-order chain-of-integrators systems with full state constraints and arbitrary terminal states. IEEE Transactions on Automatic Control.
+Wang, Yunan, Hu, Chuxiong, Li, Zeyang, Lin, Shize, He, Suqin, & Zhu, Yu (2025). Time-optimal control for high-order chain-of-integrators systems with full state constraints and arbitrary terminal states. IEEE Transactions on Automatic Control, 70(3): 1499-1514.
 ```
 
 ```
-@article{wang2024time,
-  title={Time-Optimal Control for High-Order Chain-of-Integrators Systems with Full State Constraints and Arbitrary Terminal States},
+@article{wang2025time,
+  title={Time-Optimal Control for High-Order Chain-of-Integrators Systems with Full State Constraints and Arbitrary Terminal States (Extended Version)},
   author={Wang, Yunan and Hu, Chuxiong and Li, Zeyang and Lin, Shize and He, Suqin and Zhu, Yu},
   journal={IEEE Transactions on Automatic Control},
-  year={2024}
+  year={2025},
+  volume={70},
+  number={3},
+  pages={1499-1514}
 }
 ```
 
