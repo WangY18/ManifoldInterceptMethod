@@ -12,8 +12,12 @@ public:
 private:
 	static inline arc plan_1st_order(double x0, double xf, const Constraint& constraint);
 	static vector<arc> plan_2nd_order(double* x0, double* xf, Constraint& constraint, bool flag_consider_position, int direction);
-	static vector<arc> plan_3rd_order(double* x0, double* xf, Constraint& constraint, bool flag_consider_position, int direction);
-	static bool feasible(int order, const double* x0, const Constraint& constraint, const arc* arcs, int length);
+	//static vector<arc> plan_3rd_order(double* x0, double* xf, Constraint& constraint, bool flag_consider_position, int direction);
+	static vector<arc> plan_3rd_order(double* x0, double* xf, Constraint& constraint, bool flag_consider_position);
+	static vector<arc> plan_3rd_order_no_position(double* x0, double* xf, Constraint& constraint, int direction);
+	static vector<arc> tangent_marker_3rd_order(double* x0, Constraint& constraint, bool flag_consider_position, bool forward, bool upper_bound);
+	static int direction_3rd_order_no_position(double* x0, double* xf, Constraint& constraint, int direction_2nd);
+	static int feasible(int order, const double* x0, const Constraint& constraint, const arc* arcs, int length);
 	inline static void change_sign_x(double* x, int order);
 	inline static void change_sign_arcs(arc* arcs, int length);
 	static double norm_inf(double* x, double* y, int n);

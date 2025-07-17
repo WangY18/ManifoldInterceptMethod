@@ -19,7 +19,7 @@ vector<arc> Planner::plan_2nd_order(double* x0, double* xf, Constraint& constrai
 		if (norm_inf(xs_try[xs_try.length - 1], xf, 2) < constraint.EPSILON) {
 			vector<arc> result;
 			result.push_back(arc_try);
-			if (flag_consider_position && (!feasible(2, x0, constraint, result.data(), result.size()))) {
+			if (flag_consider_position && (feasible(2, x0, constraint, result.data(), result.size()) != 0)) {
 				result.clear();
 			}
 			return result;
@@ -44,7 +44,7 @@ vector<arc> Planner::plan_2nd_order(double* x0, double* xf, Constraint& constrai
 		result.push_back(arc(0, true, 0, (constraint.M_max[1] - x0[0]) / constraint.M_max[0]));
 		result.push_back(arc(1, true, 0, DeltaX2 / constraint.M_max[1]));
 		result.push_back(arc(0, false, 0, (xf[0] - constraint.M_max[1]) / constraint.M_min[0]));
-		if (flag_consider_position && !feasible(2, x0, constraint, result.data(), result.size())) {
+		if (flag_consider_position && feasible(2, x0, constraint, result.data(), result.size()) != 0) {
 			result.clear();
 		}
 		return result;
@@ -60,7 +60,7 @@ vector<arc> Planner::plan_2nd_order(double* x0, double* xf, Constraint& constrai
 	double T1 = (xf[0] - x0[0] - (constraint.M_min[0] - constraint.M_max[0]) * T2) / constraint.M_max[0]; // T1 > T2 holds
 	result.push_back(arc(0, true, 0, T1 - T2));
 	result.push_back(arc(0, false, 0, T2));
-	if (flag_consider_position && !feasible(2, x0, constraint, result.data(), result.size())) {
+	if (flag_consider_position && feasible(2, x0, constraint, result.data(), result.size()) != 0) {
 		result.clear();
 	}
 	return result;
@@ -89,7 +89,7 @@ vector<arc> Planner::plan(int order, double* x0, double* xf, Constraint& constra
 		return plan_2nd_order(x0, xf, constraint, flag_consider_position, 0);
 	}
 	if (order == 3) {
-		return plan_3rd_order(x0, xf, constraint, flag_consider_position, 0);
+		return plan_3rd_order(x0, xf, constraint, flag_consider_position);
 	}
 	return vector<arc>(); // TODO: higher order
 }
@@ -148,12 +148,16 @@ waypoints Planner::start_points(int order, const double* xf, const Constraint& c
 
 
 // Check if the trajectory is feasible.
-bool Planner::feasible(int order, const double* x0, const Constraint& constraint, const arc* arcs, int length) {
+int Planner::feasible(int order, const double* x0, const Constraint& constraint, const arc* arcs, int length) {
 	double* x = new double[order];
 	for (int k = 0; k < order; k++) {
-		if ((!isinf(constraint.M_min[k + 1]) && x0[k] + constraint.EPSILON < constraint.M_min[k + 1]) || (!isinf(constraint.M_max[k + 1]) && x0[k] - constraint.EPSILON > constraint.M_max[k + 1])) {
+		if (!isinf(constraint.M_min[k + 1]) && x0[k] + constraint.EPSILON < constraint.M_min[k + 1]) {
 			delete[] x;
-			return false;
+			return -(k + 1);
+		}
+		if (!isinf(constraint.M_max[k + 1]) && x0[k] - constraint.EPSILON > constraint.M_max[k + 1]) {
+			delete[] x;
+			return (k + 1);
 		}
 		x[k] = x0[k];
 	}
@@ -189,7 +193,7 @@ bool Planner::feasible(int order, const double* x0, const Constraint& constraint
 			gsl_poly_complex_solve(coeffs, k1 + 1, w, z);
 			gsl_poly_complex_workspace_free(w);
 			for (int l = 0; l < k1; l++) {
-				if (fabs(z[2 * l + 1]) < constraint.EPSILON && z[2 * l] > 0 && z[2 * l] < arcs[i].time) {
+				if (fabs(z[2 * l + 1]) < constraint.EPSILON && z[2 * l] * (z[2 * l] - arcs[i].time) < 0) {
 					// A local minimum or maximum of x[k] is found.
 					double xk = x[k];
 					double Tk = 1;
@@ -199,12 +203,19 @@ bool Planner::feasible(int order, const double* x0, const Constraint& constraint
 					}
 					Tk *= z[2 * l] / (k + 1);
 					xk += Tk * u;
-					if ((!isinf(constraint.M_min[k + 1]) && xk + constraint.EPSILON < constraint.M_min[k + 1]) || (!isinf(constraint.M_max[k + 1]) && xk - constraint.EPSILON > constraint.M_max[k + 1])) {
+					if (!isinf(constraint.M_min[k + 1]) && xk + constraint.EPSILON < constraint.M_min[k + 1]) {
 						delete[] x;
 						delete[] x_old;
 						delete[] coeffs;
 						delete[] z;
-						return false;
+						return -(k + 1);
+					}
+					if (!isinf(constraint.M_max[k + 1]) && xk - constraint.EPSILON > constraint.M_max[k + 1]) {
+						delete[] x;
+						delete[] x_old;
+						delete[] coeffs;
+						delete[] z;
+						return k + 1;
 					}
 				}
 			}
@@ -215,12 +226,19 @@ bool Planner::feasible(int order, const double* x0, const Constraint& constraint
 		dynamics_onestep(order, x_old, x, u, arcs[i].time);
 		// Check the feasibility of x[k] at the end of the arc.
 		for (int k = 0; k < order; k++) {
-			if ((!isinf(constraint.M_min[k + 1]) && x[k] + constraint.EPSILON < constraint.M_min[k + 1]) || (!isinf(constraint.M_max[k + 1]) && x[k] - constraint.EPSILON > constraint.M_max[k + 1])) {
+			if (!isinf(constraint.M_min[k + 1]) && x[k] + constraint.EPSILON < constraint.M_min[k + 1]) {
 				delete[] x;
 				delete[] x_old;
 				delete[] coeffs;
 				delete[] z;
-				return false;
+				return -(k + 1);
+			}
+			if (!isinf(constraint.M_max[k + 1]) && x[k] - constraint.EPSILON > constraint.M_max[k + 1]) {
+				delete[] x;
+				delete[] x_old;
+				delete[] coeffs;
+				delete[] z;
+				return k + 1;
 			}
 		}
 	}
@@ -228,34 +246,108 @@ bool Planner::feasible(int order, const double* x0, const Constraint& constraint
 	delete[] x_old;
 	delete[] coeffs;
 	delete[] z;
-	return true;
+	return 0;
+}
+
+// Determine the direction of 3rd-order trajectory without position constraint.
+int Planner::direction_3rd_order_no_position(double* x0, double* xf, Constraint& constraint, int direction_2nd) {
+	// Step 1. determine direction_2nd
+	if (direction_2nd == 0) {
+		arc arc_try = plan_1st_order(x0[0], xf[0], constraint);
+		waypoints xs_try = end_points(3, x0, constraint, &arc_try, 1);
+		if (norm_inf(xs_try[xs_try.length - 1], xf, 2) < constraint.EPSILON) {
+			return xs_try[xs_try.length - 1][2] <= xf[2] ? 1 : -1;
+		}
+		direction_2nd = xs_try[xs_try.length - 1][1] < xf[1] ? 1 : -1;
+	}
+	if (direction_2nd < 0) { // x0 is higher than xf. It must be feasible.
+		constraint.change_sign(3);
+		change_sign_x(x0, 3);
+		change_sign_x(xf, 3);
+		int direction_3rd = direction_3rd_order_no_position(x0, xf, constraint, 1);
+		constraint.change_sign(3);
+		change_sign_x(x0, 3);
+		change_sign_x(xf, 3);
+		return -direction_3rd;
+	}
+	// x0 is lower than xf
+	// Step 2. determine multi_solution
+	double multi_solution = false;
+	if (xf[0] * x0[0] > constraint.EPSILON) {
+		bool change_sign = xf[0] < constraint.EPSILON;
+		if (change_sign) {
+			constraint.change_sign(2);
+			change_sign_x(x0, 2);
+			change_sign_x(xf, 2);
+		}
+		// xf[0]>0
+		if (x0[1] - x0[0] * x0[0] / (2.0 * constraint.M_min[0]) < xf[1] - xf[0] * xf[0] / (2.0 * constraint.M_min[0]) && x0[1] - x0[0] * x0[0] / (2.0 * constraint.M_min[0]) > xf[1] - xf[0] * xf[0] / (2.0 * constraint.M_max[0])) {
+			if (x0[0] >= xf[0] || x0[1] - x0[0] * x0[0] / (2.0 * constraint.M_max[0]) <= xf[1] - xf[0] * xf[0] / (2.0 * constraint.M_max[0])) {
+				multi_solution = true;
+			}
+		}
+		if (change_sign) {
+			constraint.change_sign(2);
+			change_sign_x(x0, 2);
+			change_sign_x(xf, 2);
+		}
+	}
+	// Step 3. Find the proper position
+	vector<arc> arcs0 = plan_2nd_order(x0, xf, constraint, false, direction_2nd);
+	waypoints xs0 = end_points(3, x0, constraint, arcs0.data(), arcs0.size());
+	double pos0 = xs0[xs0.length - 1][2] - xf[2];
+	if (!multi_solution) {
+		return pos0 <= 0 ? 1 : -1;
+	}
+	// multi_solution = true;
+	// Consider 00
+	// coeffs[0] + coeffs[1]* T2 + coeffs[2] * T2^2 = 0
+	double coeffs_00[3] = { xf[0] * xf[0] - x0[0] * x0[0] + 2.0 * constraint.M_min[0] * (x0[1] - xf[1]),2.0 * xf[0] * (constraint.M_min[0] - constraint.M_max[0]),constraint.M_max[0] * (constraint.M_max[0] - constraint.M_min[0]) };
+	gsl_poly_complex_workspace* w_00 = gsl_poly_complex_workspace_alloc(3);
+	double z_00[4];
+	gsl_poly_complex_solve(coeffs_00, 3, w_00, z_00);
+	gsl_poly_complex_workspace_free(w_00);
+	double T21 = min(z_00[0], z_00[2]); // T21 > 0 holds
+	double T22 = max(z_00[0], z_00[2]); // T22 > 0 holds
+	double T11 = (xf[0] - x0[0] - (constraint.M_max[0] - constraint.M_min[0]) * T21) / constraint.M_min[0]; // T11 > T21 holds
+	double T12 = (xf[0] - x0[0] - (constraint.M_max[0] - constraint.M_min[0]) * T22) / constraint.M_min[0]; // T12 > T22 holds
+	vector<arc> arcs;
+	arcs.push_back(arc(0, false, 0, T11 - T21));
+	arcs.push_back(arc(0, true, 0, T21));
+	waypoints xs1 = end_points(3, x0, constraint, arcs.data(), arcs.size());
+	double pos1 = xs1[xs1.length - 1][2] - xf[2];
+	arcs.clear();
+	if (isinf(constraint.M_min[1]) || T22 <= (xf[0] - constraint.M_min[1]) / constraint.M_max[0]) {
+		arcs.push_back(arc(0, false, 0, T12 - T22));
+		arcs.push_back(arc(0, true, 0, T22));
+	}
+	else {
+		double t0 = (constraint.M_min[1] - x0[0]) / constraint.M_min[0];
+		double t2 = (xf[0] - constraint.M_min[1]) / constraint.M_max[0];
+		double t1 = ((xf[1] - xf[0] * t2 + 0.5 * constraint.M_max[0] * t2 * t2) - (x0[1] + x0[0] * t0 + 0.5 * constraint.M_min[0] * t0 * t0)) / constraint.M_min[1];
+		arcs.push_back(arc(0, false, 0, t0));
+		arcs.push_back(arc(1, false, 0, t1));
+		arcs.push_back(arc(0, true, 0, t2));
+	}
+	waypoints xs2 = end_points(3, x0, constraint, arcs.data(), arcs.size());
+	double pos2 = xs2[xs2.length - 1][2] - xf[2];
+	return ((pos0 <= 0) + (pos1 <= 0) + (pos2 <= 0)) % 2 == 1 ? 1 : -1;
 }
 
 
-// Plan a 3rd-order trajectory from x0 to xf under constraint.
+// Plan a 3rd-order trajectory from x0 to xf under constraint. (No position constraint)
 // First Step: 00, 010
 // Second Step: s00, s010
 // If direction is 1/-1, then directly consider the case where x0 is lower/higher than xf.
-vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constraint, bool flag_consider_position, int direction) {
+vector<arc> Planner::plan_3rd_order_no_position(double* x0, double* xf, Constraint& constraint, int direction) {
 	if (direction == 0) {
-		vector<arc> arc_try = plan_2nd_order(x0, xf, constraint, false, 0);
-		if (arc_try.empty()) {
-			return arc_try;
-		}
-		waypoints xs_try = end_points(3, x0, constraint, arc_try.data(), arc_try.size());
-		if (norm_inf(xs_try[xs_try.length - 1], xf, 3) < constraint.EPSILON) {
-			if (flag_consider_position && (!feasible(3, x0, constraint, arc_try.data(), arc_try.size()))) {
-				arc_try.clear();
-			}
-			return arc_try;
-		}
-		direction = xs_try[xs_try.length - 1][2] < xf[2] ? 1 : -1;
+		direction = direction_3rd_order_no_position(x0, xf, constraint, 0);
 	}
 	if (direction < 0) { // x0 is higher than xf. It must be feasible.
 		constraint.change_sign(3);
 		change_sign_x(x0, 3);
 		change_sign_x(xf, 3);
-		vector<arc> result = plan_3rd_order(x0, xf, constraint, flag_consider_position, 1);
+		vector<arc> result = plan_3rd_order_no_position(x0, xf, constraint, 1);
 		constraint.change_sign(3);
 		change_sign_x(x0, 3);
 		change_sign_x(xf, 3);
@@ -308,10 +400,9 @@ vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constrai
 		}
 	}
 	// Step 2: Find where the trajectory enters the manifold.
-	bool flag_succeed_noposition = false;
+	// printf("%d %d\n", direction_3rd_order_no_position(x0, xf, constraint, 0), direction_3rd_order_no_position(xs_before[1], xf, constraint, 0)); 
 	while (result.size() > 1) {
-		double propos = proper_position(3, xs_before[xs_before.length - 1], xf, constraint);
-		if (xs_before[xs_before.length - 1][2] <= xf[2] - propos) {
+		if (direction_3rd_order_no_position(xs_before[xs_before.length - 1], xf, constraint, 0) > 0) {
 			break;
 		}
 		result.pop_back();
@@ -333,8 +424,8 @@ vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constrai
 		delete[] T_s00;
 		result.push_back(arc2);
 		result.push_back(arc3);
-		if (feasible(2, xs_before[xs_before.length - 1], constraint, result.data() + (result.size() - 3), 3)) {
-			flag_succeed_noposition = true;
+		if (feasible(2, xs_before[xs_before.length - 1], constraint, result.data() + (result.size() - 3), 3) == 0) {
+			return result;
 		}
 		else {
 			result.pop_back();
@@ -345,139 +436,384 @@ vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constrai
 		throw invalid_argument("No solution for s00.");
 		exit(1);
 	}
-	if (!flag_succeed_noposition) {
-		if (isinf(constraint.M_min[1])) {
-			throw invalid_argument("No solution for s01.");
-			exit(1);
-		}
-		// Step 3.2: s010
-		arc arc4 = plan_1st_order(constraint.M_min[1], xf[0], constraint);
-		waypoints xsf = start_points(3, xf, constraint, &arc4, 1);
-		arc3 = arc(1, false, 0);
-		double* T_s01 = solution_3arc_3rd_order(xs_before[xs_before.length - 1], xsf[xsf.length - 1], result[result.size() - 1], arc2, arc3, constraint);
-		if (T_s01 != nullptr) {
-			result[result.size() - 1].time = T_s01[0] - T_s01[1];
-			arc2.time = T_s01[1] - T_s01[2];
-			arc3.time = T_s01[2];
-			delete[] T_s01;
-			result.push_back(arc2);
-			result.push_back(arc3);
-			if (feasible(2, xs_before[xs_before.length - 1], constraint, result.data() + (result.size() - 3), 3)) {
-				flag_succeed_noposition = true;
-				result.push_back(arc4);
-			}
-			else {
-				result.pop_back();
-				result.pop_back();
-			}
-		}
-	}
-	if (!flag_succeed_noposition) {
-		throw invalid_argument("No solution.");
+	if (isinf(constraint.M_min[1])) {
+		throw invalid_argument("No solution for s01.");
 		exit(1);
 	}
-	if (feasible(3, x0, constraint, result.data(), result.size())) {
-		return result;
+	// Step 3.2: s010
+	arc arc4 = plan_1st_order(constraint.M_min[1], xf[0], constraint);
+	waypoints xsf = start_points(3, xf, constraint, &arc4, 1);
+	arc3 = arc(1, false, 0);
+	double* T_s01 = solution_3arc_3rd_order(xs_before[xs_before.length - 1], xsf[xsf.length - 1], result[result.size() - 1], arc2, arc3, constraint);
+	if (T_s01 != nullptr) {
+		result[result.size() - 1].time = T_s01[0] - T_s01[1];
+		arc2.time = T_s01[1] - T_s01[2];
+		arc3.time = T_s01[2];
+		delete[] T_s01;
+		result.push_back(arc2);
+		result.push_back(arc3);
+		if (feasible(2, xs_before[xs_before.length - 1], constraint, result.data() + (result.size() - 3), 3) == 0) {
+			result.push_back(arc4);
+			return result;
+		}
+		else {
+			result.pop_back();
+			result.pop_back();
+		}
 	}
-	// Step 4: Consider tangent markers.
-	// Only -3 can support tangent markers, i.e., (-3,2).
-	result.clear();
-	// Step 4.1: like 00(-3,2)000
-	// Step 4.1.1: 00(-3,2)*
-	arc arc1(0, true, 0);
-	arc2 = arc(0, false, 0);
-	double* T_tangent = solution_2arc_tangent_3rd_order(x0, arc1, arc2, constraint, true);
+	throw invalid_argument("No solution.");
+	exit(1);
+}
+
+// Consider tangent marker.
+vector<arc> Planner::tangent_marker_3rd_order(double* x0, Constraint& constraint, bool flag_consider_position, bool forward, bool upper_bound) {
+	vector<arc> result;
+	// Step 1. Consider x0 -> 00 -> (3,2)
+	arc arc1(0, forward != upper_bound, 0);
+	arc arc2(0, !arc1.sign, 0);
+	double* T_tangent = solution_2arc_tangent_3rd_order(x0, arc1, arc2, constraint, forward);
 	if (T_tangent != nullptr) {
 		arc1.time = T_tangent[0] - T_tangent[1];
 		arc2.time = T_tangent[1];
 		delete[] T_tangent;
 		result.push_back(arc1);
 		result.push_back(arc2);
-		if (feasible(2, x0, constraint, result.data(), result.size())) {
-			waypoints xs1 = end_points(3, x0, constraint, result.data(), result.size());
-			result.push_back(arc(3, true, 2));
-			vector<arc> result2 = plan_3rd_order(xs1[2], xf, constraint, false, -1);
-			for (int i = 0; i < result2.size(); ++i) {
-				result.push_back(result2[i]);
-			}
-			return result;
+		if (feasible(2, x0, constraint, result.data(), result.size()) != 0) {
+			result.clear();
 		}
 		else {
-			result.clear();
+			return result;
 		}
 	}
 	// Step 4.1.2: 010(-3,2)*
-	arc1 = plan_1st_order(x0[0], constraint.M_max[1], constraint);
-	arc2 = arc(1, true, 0);
-	arc3 = arc(0, false, 0);
-	waypoints x0now_pre = end_points(3, x0, constraint, &arc1, 1);
-	T_tangent = solution_2arc_tangent_3rd_order(x0now_pre[1], arc2, arc3, constraint, true);
-	if (T_tangent != nullptr) {
-		arc2.time = T_tangent[0] - T_tangent[1];
-		arc3.time = T_tangent[1];
-		delete[] T_tangent;
-		result.push_back(arc1);
-		result.push_back(arc2);
-		result.push_back(arc3);
-		if (feasible(2, x0, constraint, result.data(), result.size())) {
-			waypoints xs1 = end_points(3, x0, constraint, result.data(), result.size());
-			result.push_back(arc(3, true, 2));
-			vector<arc> result2 = plan_3rd_order(xs1[2], xf, constraint, false, -1);
-			for (int i = 0; i < result2.size(); ++i) {
-				result.push_back(result2[i]);
-			}
-		}
-		return result;
-	}
-	// Step 4.2: like 000(-3,2)00
-	// Step 4.2.1: *(-3,2)00
-	arc1 = arc(0, false, 0);
-	arc2 = arc(0, true, 0);
-	T_tangent = solution_2arc_tangent_3rd_order(xf, arc1, arc2, constraint, false);
-	if (T_tangent != nullptr) {
-		arc1.time = T_tangent[1] - T_tangent[0];
-		arc2.time = -T_tangent[1];
-		delete[] T_tangent;
-		arc arcs2[] = { arc2, arc1 };
-		waypoints xs1 = start_points(3, xf, constraint, arcs2, 2);
-		if (feasible(2, xs1[xs1.length - 1], constraint, result.data(), result.size())) {
-			vector<arc> result2 = plan_3rd_order(x0, xs1[2], constraint, false, -1);
-			for (int i = 0; i < result2.size(); ++i) {
-				result.push_back(result2[i]);
-			}
-			result.push_back(arc(3, true, 2));
-			result.push_back(arc2);
+	arc2 = arc(1, arc1.sign == forward, 0);
+	double x1[3];
+	x1[0] = arc2.sign ? constraint.M_max[1] : constraint.M_min[1];
+	if (!isinf(x1[0])) {
+		arc arc3(0, !arc1.sign, 0);
+		arc1.time = (x1[0] - x0[0]) / constraint.cal_u(arc1);
+		dynamics_onestep(3, x0, x1, constraint.cal_u(arc1), arc1.time);
+		T_tangent = solution_2arc_tangent_3rd_order(x1, arc2, arc3, constraint, true);
+		if (T_tangent != nullptr) {
+			arc2.time = T_tangent[0] - T_tangent[1];
+			arc3.time = T_tangent[1];
+			delete[] T_tangent;
 			result.push_back(arc1);
-			return result;
-		}
-	}
-	// Step 4.2.1: *(-3,2)010
-	arc1 = plan_1st_order(constraint.M_max[1], xf[0], constraint);
-	arc2 = arc(1, true, 0);
-	arc3 = arc(0, true, 0);
-	waypoints x0now_post = start_points(3, xf, constraint, &arc1, 1);
-	T_tangent = solution_2arc_tangent_3rd_order(x0now_pre[1], arc2, arc3, constraint, false);
-	if (T_tangent != nullptr) {
-		arc2.time = T_tangent[1] - T_tangent[0];
-		arc3.time = -T_tangent[1];
-		delete[] T_tangent;
-		arc arcs2[] = { arc3, arc2, arc1 };
-		waypoints xs1 = start_points(3, xf, constraint, arcs2, 3);
-		if (feasible(2, xs1[xs1.length - 1], constraint, result.data(), result.size())) {
-			vector<arc> result2 = plan_3rd_order(x0, xs1[3], constraint, false, -1);
-			for (int i = 0; i < result2.size(); ++i) {
-				result.push_back(result2[i]);
-			}
-			result.push_back(arc(3, true, 2));
+			result.push_back(arc2);
 			result.push_back(arc3);
-			result.push_back(arc2);
-			result.push_back(arc1);
-			return result;
+			if (feasible(2, x0, constraint, result.data(), result.size()) != 0) {
+				result.clear();
+			}
+			else {
+				return result;
+			}
 		}
 	}
 	result.clear();
 	return result;
 }
+
+// Plan a 3rd-order trajectory from x0 to xf under constraint.
+// First Step: 00, 010
+// Second Step: s00, s010
+// If direction is 1/-1, then directly consider the case where x0 is lower/higher than xf.
+vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constraint, bool flag_consider_position) {
+	vector<arc> result0 = plan_3rd_order_no_position(x0, xf, constraint, 0);
+	if ((!flag_consider_position)) {
+		return result0;
+	}
+	int active_constraint = feasible(3, x0, constraint, result0.data(), result0.size());
+	if (active_constraint == 0) {
+		return result0;
+	}
+	if (abs(active_constraint) != 3) {
+		throw invalid_argument("The trajectory is not feasible in 3rd order.");
+		exit(1);
+	}
+	bool upper_bound = active_constraint == 3;
+
+	// 00(3,2)000
+	vector<arc> result10 = tangent_marker_3rd_order(x0, constraint, flag_consider_position, true, upper_bound);
+	if (!result10.empty()) {
+		waypoints xs10 = end_points(3, x0, constraint, result10.data(), result10.size());
+		vector<arc> result11 = plan_3rd_order_no_position(xs10[xs10.length - 1], xf, constraint, result10.back().sign ? 1 : -1);
+		if (!result11.empty()) {
+			result10.push_back(arc(3, upper_bound, 2));
+			for (int i = 0; i < result11.size(); i++) {
+				result10.push_back(result11[i]);
+			}
+			if (feasible(3, x0, constraint, result10.data(), result10.size()) == 0) {
+				return result10;
+			}
+		}
+	}
+
+	// 000(3,2)00
+	vector<arc> result20 = tangent_marker_3rd_order(xf, constraint, flag_consider_position, false, upper_bound);
+	if (!result20.empty()) {
+		waypoints xs20 = end_points(3, xf, constraint, result20.data(), result20.size());
+		vector<arc> result21 = plan_3rd_order_no_position(x0, xs20[xs20.length - 1], constraint, result20.back().sign ? 1 : -1);
+		if (!result21.empty()) {
+			result21.push_back(arc(3, upper_bound, 2));
+			for (int i = result20.size() - 1; i >= 0; i--) {
+				result20[i].time *= -1;
+				result21.push_back(result20[i]);
+			}
+			if (feasible(3, x0, constraint, result21.data(), result21.size()) == 0) {
+				return result21;
+			}
+		}
+	}
+	// TODO: more than one tangent markers (small probability)
+	return vector <arc>();
+}
+
+//// Plan a 3rd-order trajectory from x0 to xf under constraint.
+//// First Step: 00, 010
+//// Second Step: s00, s010
+//// If direction is 1/-1, then directly consider the case where x0 is lower/higher than xf.
+//vector<arc> Planner::plan_3rd_order(double* x0, double* xf, Constraint& constraint, bool flag_consider_position, int direction) {
+//	if (direction == 0) {
+//		vector<arc> arc_try = plan_2nd_order(x0, xf, constraint, false, 0);
+//		if (arc_try.empty()) {
+//			return arc_try;
+//		}
+//		waypoints xs_try = end_points(3, x0, constraint, arc_try.data(), arc_try.size());
+//		if (norm_inf(xs_try[xs_try.length - 1], xf, 3) < constraint.EPSILON) {
+//			if (flag_consider_position && (feasible(3, x0, constraint, arc_try.data(), arc_try.size()) != 0)) {
+//				arc_try.clear();
+//			}
+//			return arc_try;
+//		}
+//		direction = xs_try[xs_try.length - 1][2] < xf[2] ? 1 : -1;
+//	}
+//	if (direction < 0) { // x0 is higher than xf. It must be feasible.
+//		constraint.change_sign(3);
+//		change_sign_x(x0, 3);
+//		change_sign_x(xf, 3);
+//		vector<arc> result = plan_3rd_order(x0, xf, constraint, flag_consider_position, 1);
+//		constraint.change_sign(3);
+//		change_sign_x(x0, 3);
+//		change_sign_x(xf, 3);
+//		change_sign_arcs(result.data(), result.size());
+//		return result;
+//	}
+//	// x0 is lower than xf
+//	// Step 1: Try to enter the manifold.
+//	vector<arc> result;
+//	waypoints xs_before;
+//	if (!isinf(constraint.M_max[2])) {
+//		double maxV[] = { 0, constraint.M_max[2] };
+//		result = plan_2nd_order(x0, maxV, constraint, false, 1);
+//		vector<arc> result2 = plan_2nd_order(maxV, xf, constraint, false, -1);
+//		waypoints xs1 = end_points(3, x0, constraint, result.data(), result.size());
+//		waypoints xs2 = start_points(3, xf, constraint, result2.data(), result2.size());
+//		if (xs1[xs1.length - 1][2] <= xs2[xs2.length - 1][2]) {
+//			if (xs1[xs1.length - 1][2] < xs2[xs2.length - 1][2]) {
+//				result.push_back(arc(2, true, 0, (xs2[xs2.length - 1][2] - xs1[xs1.length - 1][2]) / constraint.M_max[2]));
+//			}
+//			for (int i = 0; i < result2.size(); i++) {
+//				result.push_back(result2[i]);
+//			}
+//			xs2.clear();
+//			xs1.clear();
+//			return result;
+//		}
+//		xs1.length -= 2; // +0 cannot exist.
+//		result.pop_back();
+//		result[result.size() - 1].time = 0;
+//		xs_before = xs1;
+//		xs1.xs = nullptr;
+//		xs1.length = 0;
+//		xs1.order = 0;
+//	}
+//	else if (!isinf(constraint.M_max[1])) {
+//		result.push_back(plan_1st_order(x0[0], constraint.M_max[1], constraint));
+//		result.push_back(arc(1, true, 0, 0));
+//		xs_before.set(3, 2);
+//		for (int k = 0; k < 2; k++) {
+//			xs_before[0][k] = x0[k];
+//		}
+//		dynamics_onestep(3, x0, xs_before[1], constraint.M_max[0], result[0].time);
+//	}
+//	else {
+//		result.push_back(arc(0, true, 0, 0));
+//		xs_before.set(3, 1);
+//		for (int k = 0; k < 2; k++) {
+//			xs_before[0][k] = x0[k];
+//		}
+//	}
+//	// Step 2: Find where the trajectory enters the manifold.
+//	bool flag_succeed_noposition = false;
+//	while (result.size() > 1) {
+//		double propos = proper_position(3, xs_before[xs_before.length - 1], xf, constraint);
+//		if (xs_before[xs_before.length - 1][2] <= xf[2] - propos) {
+//			break;
+//		}
+//		result.pop_back();
+//		result[result.size() - 1].time = 0;
+//		--xs_before.length;
+//	}
+//	// xs1[xs1.length-1] enters the manifold along the arc result[result.size()-1].
+//	// Step 3: Create the whole trajectory. Consider s00, s010
+//	// Step 3.1: s00
+//	arc arc2(0, false, 0);
+//	arc arc3(0, true, 0);
+//	//xs_before.length = 1;
+//	//result.pop_back();
+//	double* T_s00 = solution_3arc_3rd_order(xs_before[xs_before.length - 1], xf, result[result.size() - 1], arc2, arc3, constraint);
+//	if (T_s00) {
+//		result[result.size() - 1].time = T_s00[0] - T_s00[1];
+//		arc2.time = T_s00[1] - T_s00[2];
+//		arc3.time = T_s00[2];
+//		delete[] T_s00;
+//		result.push_back(arc2);
+//		result.push_back(arc3);
+//		if (feasible(2, xs_before[xs_before.length - 1], constraint, result.data() + (result.size() - 3), 3) == 0) {
+//			flag_succeed_noposition = true;
+//		}
+//		else {
+//			result.pop_back();
+//			result.pop_back();
+//		}
+//	}
+//	else {
+//		throw invalid_argument("No solution for s00.");
+//		exit(1);
+//	}
+//	if (!flag_succeed_noposition) {
+//		if (isinf(constraint.M_min[1])) {
+//			throw invalid_argument("No solution for s01.");
+//			exit(1);
+//		}
+//		// Step 3.2: s010
+//		arc arc4 = plan_1st_order(constraint.M_min[1], xf[0], constraint);
+//		waypoints xsf = start_points(3, xf, constraint, &arc4, 1);
+//		arc3 = arc(1, false, 0);
+//		double* T_s01 = solution_3arc_3rd_order(xs_before[xs_before.length - 1], xsf[xsf.length - 1], result[result.size() - 1], arc2, arc3, constraint);
+//		if (T_s01 != nullptr) {
+//			result[result.size() - 1].time = T_s01[0] - T_s01[1];
+//			arc2.time = T_s01[1] - T_s01[2];
+//			arc3.time = T_s01[2];
+//			delete[] T_s01;
+//			result.push_back(arc2);
+//			result.push_back(arc3);
+//			if (feasible(2, xs_before[xs_before.length - 1], constraint, result.data() + (result.size() - 3), 3) == 0) {
+//				flag_succeed_noposition = true;
+//				result.push_back(arc4);
+//			}
+//			else {
+//				result.pop_back();
+//				result.pop_back();
+//			}
+//		}
+//	}
+//	if (!flag_succeed_noposition) {
+//		throw invalid_argument("No solution.");
+//		exit(1);
+//	}
+//	if (feasible(3, x0, constraint, result.data(), result.size()) == 0) {
+//		return result;
+//	}
+//	// Step 4: Consider tangent markers.
+//	// Only -3 can support tangent markers, i.e., (-3,2).
+//	result.clear();
+//	// Step 4.1: like 00(-3,2)000
+//	// Step 4.1.1: 00(-3,2)*
+//	arc arc1(0, true, 0);
+//	arc2 = arc(0, false, 0);
+//	double* T_tangent = solution_2arc_tangent_3rd_order(x0, arc1, arc2, constraint, true);
+//	if (T_tangent != nullptr) {
+//		arc1.time = T_tangent[0] - T_tangent[1];
+//		arc2.time = T_tangent[1];
+//		delete[] T_tangent;
+//		result.push_back(arc1);
+//		result.push_back(arc2);
+//		if (feasible(2, x0, constraint, result.data(), result.size())) {
+//			waypoints xs1 = end_points(3, x0, constraint, result.data(), result.size());
+//			result.push_back(arc(3, true, 2));
+//			vector<arc> result2 = plan_3rd_order(xs1[2], xf, constraint, false, -1);
+//			for (int i = 0; i < result2.size(); ++i) {
+//				result.push_back(result2[i]);
+//			}
+//			return result;
+//		}
+//		else {
+//			result.clear();
+//		}
+//	}
+//	// Step 4.1.2: 010(-3,2)*
+//	arc1 = plan_1st_order(x0[0], constraint.M_max[1], constraint);
+//	arc2 = arc(1, true, 0);
+//	arc3 = arc(0, false, 0);
+//	waypoints x0now_pre = end_points(3, x0, constraint, &arc1, 1);
+//	T_tangent = solution_2arc_tangent_3rd_order(x0now_pre[1], arc2, arc3, constraint, true);
+//	if (T_tangent != nullptr) {
+//		arc2.time = T_tangent[0] - T_tangent[1];
+//		arc3.time = T_tangent[1];
+//		delete[] T_tangent;
+//		result.push_back(arc1);
+//		result.push_back(arc2);
+//		result.push_back(arc3);
+//		if (feasible(2, x0, constraint, result.data(), result.size())) {
+//			waypoints xs1 = end_points(3, x0, constraint, result.data(), result.size());
+//			result.push_back(arc(3, true, 2));
+//			vector<arc> result2 = plan_3rd_order(xs1[2], xf, constraint, false, -1);
+//			for (int i = 0; i < result2.size(); ++i) {
+//				result.push_back(result2[i]);
+//			}
+//		}
+//		return result;
+//	}
+//	// Step 4.2: like 000(-3,2)00
+//	// Step 4.2.1: *(-3,2)00
+//	arc1 = arc(0, false, 0);
+//	arc2 = arc(0, true, 0);
+//	T_tangent = solution_2arc_tangent_3rd_order(xf, arc1, arc2, constraint, false);
+//	if (T_tangent != nullptr) {
+//		arc1.time = T_tangent[1] - T_tangent[0];
+//		arc2.time = -T_tangent[1];
+//		delete[] T_tangent;
+//		arc arcs2[] = { arc2, arc1 };
+//		waypoints xs1 = start_points(3, xf, constraint, arcs2, 2);
+//		if (feasible(2, xs1[xs1.length - 1], constraint, result.data(), result.size())) {
+//			vector<arc> result2 = plan_3rd_order(x0, xs1[2], constraint, false, -1);
+//			for (int i = 0; i < result2.size(); ++i) {
+//				result.push_back(result2[i]);
+//			}
+//			result.push_back(arc(3, true, 2));
+//			result.push_back(arc2);
+//			result.push_back(arc1);
+//			return result;
+//		}
+//	}
+//	// Step 4.2.1: *(-3,2)010
+//	arc1 = plan_1st_order(constraint.M_max[1], xf[0], constraint);
+//	arc2 = arc(1, true, 0);
+//	arc3 = arc(0, true, 0);
+//	waypoints x0now_post = start_points(3, xf, constraint, &arc1, 1);
+//	T_tangent = solution_2arc_tangent_3rd_order(x0now_pre[1], arc2, arc3, constraint, false);
+//	if (T_tangent != nullptr) {
+//		arc2.time = T_tangent[1] - T_tangent[0];
+//		arc3.time = -T_tangent[1];
+//		delete[] T_tangent;
+//		arc arcs2[] = { arc3, arc2, arc1 };
+//		waypoints xs1 = start_points(3, xf, constraint, arcs2, 3);
+//		if (feasible(2, xs1[xs1.length - 1], constraint, result.data(), result.size())) {
+//			vector<arc> result2 = plan_3rd_order(x0, xs1[3], constraint, false, -1);
+//			for (int i = 0; i < result2.size(); ++i) {
+//				result.push_back(result2[i]);
+//			}
+//			result.push_back(arc(3, true, 2));
+//			result.push_back(arc3);
+//			result.push_back(arc2);
+//			result.push_back(arc1);
+//			return result;
+//		}
+//	}
+//	result.clear();
+//	return result;
+//}
 
 // Calculate the infinity norm of x-y.
 double Planner::norm_inf(double* x, double* y, int n) {
@@ -614,8 +950,8 @@ double* Planner::solution_3arc_3rd_order(double* x0, double* xf, const arc& arc1
 			return T;
 		}
 	}
-	throw "No solutions.";
-	exit(1); // TODO
+	//throw "No solutions.";
+	//exit(1); // TODO
 	return nullptr;
 }
 
@@ -658,14 +994,20 @@ double* Planner::solution_2arc_tangent_3rd_order(double* x0, const arc& arc1, co
 			T2 = positive_time ? sqrt(T2) : -sqrt(T2);
 			double xf1 = x1 + u1 * T1 + u2 * T2;
 			if (((positive_time && 0 <= T2 && T2 <= T1) || ((!positive_time) && 0 >= T2 && T2 >= T1)) && (xf3 * xf1 <= 0)) {
-				if (flag_succeed) {
-					throw "Multiple solutions.";
-					exit(1); // TODO
+				double x1[3];
+				dynamics_onestep(3, x0, x1, u1, T1 - T2);
+				double x2[3];
+				dynamics_onestep(3, x1, x2, u2 + u1, T2);
+				if (fabs(x2[2] - xf3) < constraint.EPSILON && fabs(x2[1]) < constraint.EPSILON && (positive_time == arc2.sign ? x2[0] <= 0 : x2[0] >= 0)) {
+					if (flag_succeed) {
+						throw "Multiple solutions.";
+						exit(1); // TODO
+					}
+					flag_succeed = true;
+					T[0] = T1;
+					T[1] = T2;
+					//break;
 				}
-				flag_succeed = true;
-				T[0] = T1;
-				T[1] = T2;
-				//break;
 			}
 		}
 	}
