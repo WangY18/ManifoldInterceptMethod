@@ -13,6 +13,8 @@ $$
 \text{The augmented switching law: }\underline{0}\overline{0}\left(\overline{3},2\right)\overline{0}\underline{0}\overline{03}\underline{01}\overline{0}\underline{2}\overline{01}\underline{0}\overline{4}\underline{01}\overline{0}\underline{2}\overline{01}\underline{0}\underline{3}\overline{01}\underline{0}\overline{0}
 $$
 
+<mark>**A bug exists in the current MATLAB version (C++ version is OK). If you need to use MIM-MATLAB soon, please contact Yunan Wang.**</mark>
+
 ## Please Cite:
 
 ```
@@ -272,4 +274,3 @@ $$
 <p align="center">
 	<b>Figure.</b> The trajectory in Example 2.
 </p>
-
