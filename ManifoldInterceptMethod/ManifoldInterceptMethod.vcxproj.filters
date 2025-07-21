@@ -24,7 +24,7 @@
     <ClCompile Include="arcs.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Planner.cpp">
+    <ClCompile Include="Planner_MIM.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="Interpolator.cpp">
@@ -38,7 +38,7 @@
     <ClInclude Include="arcs.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Planner.h">
+    <ClInclude Include="Planner_MIM.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="Interpolator.h">

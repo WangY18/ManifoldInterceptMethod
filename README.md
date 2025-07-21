@@ -46,7 +46,7 @@ The advantages of MIM are as follows:
 
 + **Asymmetric constraints**. For example, we can require that $-1\leq x_3\leq +\infty$, $-2\leq x_2\leq 3$, $-\infty\leq x_1\leq +\infty$, $-1.5\leq u\leq 1$ in a 3rd-order problem, where $x_3$ is position, $x_2$ is velocity, $x_1$ is acceleration, and $u$ is jerk.
 + **Non-zero boundary states**. For example, we can require that the trajectory moves from $(x_1,x_2,x_3)=(1,-0.375,4)$ to $(x_1,x_2,x_3)=(-0.1,0.1,-1)$ in a 3rd-order problem.
-+ **High computational efficiency**. The computation time of MIM can be significantly reduced compared to existing methods, where **3rd-order** problems require only about <mark>**0.02~0.08 ms**</mark> (in C++ release mode), and the computation time for **4th-order** problems is reduced by **two orders of magnitude** compared to the existing optimization-based methods.
++ **High computational efficiency**. The computation time of MIM can be significantly reduced compared to existing methods, where **3rd-order** problems require only about <mark>**5~50 us**</mark> (in C++ release mode), and the computation time for **4th-order** problems is reduced by **two orders of magnitude** compared to the existing optimization-based methods.
 + **High trajectory quality.** No chattering exists.
 + **High success rate**. 100% success rate for problems of order $n\leq4$.
 + **Strict/near time-optimality**. 100% optimality for problems of order $n\leq3$. 99.88% optimality for 4h-order problems.
@@ -164,7 +164,7 @@ The meanings are the same as those in C++ version.
 ### Example 1. 3rd-order problems with 7 arcs.
 
 ```c++
-#include "Planner.h"
+#include "Planner_MIM.h"
 #include "Interpolator.h"
 using namespace std;
 
@@ -172,15 +172,15 @@ int main() {
 	int order = 3;
 	double M_max[4] = { 1.0, 1.0, 1.5, 4.0 };
 	double M_min[4] = { -1.0, -1.0, -1.5, -4.0 };
-	Constraint constraint;
+	MIM::Constraint constraint;
 	constraint.copy(order, M_max, M_min);
 	double x0[3] = { 1, -3.0 / 8.0, 4 };
 	double xf[3] = { -0.1, 0.1, -1 };
 
-	vector<arc> arcs = Planner::plan(order, x0, xf, constraint, true);
+	vector<MIM::arc> arcs = MIM::Planner_MIM::plan(order, x0, xf, constraint, true);
 
 	double Ts = 1e-3;
-	Interpolator interpolator(order);
+	MIM::Interpolator interpolator(order);
 	interpolator.interpolate(x0, arcs.data(), arcs.size(), constraint, Ts);
 	interpolator.write_csv(R"(..\data\3rd_order\0102010.csv)");
 }
@@ -222,7 +222,7 @@ $$
 ### Example 2. 3rd-order problems with 5 arcs and 1 tangent marker.
 
 ```c++
-#include "Planner.h"
+#include "Planner_MIM.h"
 #include "Interpolator.h"
 using namespace std;
 
@@ -230,15 +230,15 @@ int main() {
 	int order = 3;
 	double M_max[4] = { 1.0, 1.0, 1.5, 4.0 };
 	double M_min[4] = { -1.0, -1.0, -1.5, -4.0 };
-	Constraint constraint;
+	MIM::Constraint constraint;
 	constraint.copy(order, M_max, M_min);
 	double x0[3] = { 1,-0.375, 3.999 };
 	double xf[3] = { 0, 0, 4 };
 
-	vector<arc> arcs = Planner::plan(order, x0, xf, constraint, true);
+	vector<MIM::arc> arcs = MIM::Planner_MIM::plan(order, x0, xf, constraint, true);
 
 	double Ts = 1e-3;
-	Interpolator interpolator(order);
+	MIM::Interpolator interpolator(order);
 	interpolator.interpolate(x0, arcs.data(), arcs.size(), constraint, Ts);
 	interpolator.write_csv(R"(..\data\3rd_order\00_3_2_000.csv)");
 }

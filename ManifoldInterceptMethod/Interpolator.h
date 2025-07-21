@@ -4,6 +4,8 @@
 #include "arcs.h"
 using namespace std;
 
+namespace MIM {
+
 class Interpolator {
 public:
 	Interpolator(int order);
@@ -14,3 +16,5 @@ public:
 	vector<double>* buffer;
 	int order;
 };
+
+}

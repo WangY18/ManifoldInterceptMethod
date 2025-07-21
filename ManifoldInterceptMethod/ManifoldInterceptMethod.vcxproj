@@ -131,13 +131,13 @@
     <ClCompile Include="demo.cpp" />
     <ClCompile Include="Interpolator.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Planner.cpp" />
+    <ClCompile Include="Planner_MIM.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="arcs.h" />
     <ClInclude Include="demo.h" />
     <ClInclude Include="Interpolator.h" />
-    <ClInclude Include="Planner.h" />
+    <ClInclude Include="Planner_MIM.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
