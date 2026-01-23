@@ -18,7 +18,8 @@ $$
 ## Please Cite:
 
 ```
-Wang, Yunan, Hu, Chuxiong, Li, Zeyang, Lin, Shize, He, Suqin, & Zhu, Yu (2025). Time-optimal control for high-order chain-of-integrators systems with full state constraints and arbitrary terminal states. IEEE Transactions on Automatic Control, 70(3): 1499-1514.
+Y. Wang, C. Hu, Z. Li, S. Lin, S. He, and Y. Zhu. "Time-optimal control for high-order chain-of-integrators systems with full state constraints and arbitrary terminal states," IEEE Transactions on Automatic Control, vol. 70, no. 3, pp. 1499-1514, 2025.
+Y. Wang, C. Hu, and Z. Jin. "Time-optimal switching surfaces for triple integrator under full box constraints," in American Control Conference, 2026. (Accepted)
 ```
 
 ```
@@ -30,6 +31,13 @@ Wang, Yunan, Hu, Chuxiong, Li, Zeyang, Lin, Shize, He, Suqin, & Zhu, Yu (2025). 
   volume={70},
   number={3},
   pages={1499-1514}
+}
+@inproceedings{wang2026time,
+  title={Time-optimal switching surfaces for triple integrator under full box constraints},
+  author={Wang, Yunan and Hu, Chuxiong and Jin, Zhao},
+  booktitle={American Control Conference},
+  year={2026},
+  organization={IEEE}
 }
 ```
 
